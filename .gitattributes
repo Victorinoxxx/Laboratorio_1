@@ -1,2 +1,243 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+//-----------------------------------------------------------------------------
+// Universidad del valle de Guatemala
+// IE2023 Programaciónn de Microcontroladores
+// Autor: Victor Vanegas
+// Proyecto: Laboratorio_1.asm
+// Descripción: 2 contadores de 4 bits con suma y muestra carry
+// Hardware: ATMega328P 
+// Created: 30/01/2024 22:34:59
+//-----------------------------------------------------------------------------
+// Encabezado
+//-----------------------------------------------------------------------------
+.include "M328PDEF.inc"
+
+.cseg
+.org 0x00
+//-----------------------------------------------------------------------------
+// Configuracion de la pila
+//-----------------------------------------------------------------------------
+	LDI R16, LOW(RAMEND) 
+	OUT SPL, R16
+	LDI R17, HIGH(RAMEND) // Delay
+	OUT SPH, R17
+	LDI R17, 0x00
+	
+//-----------------------------------------------------------------------------
+// Configuracion MCU
+//-----------------------------------------------------------------------------
+SETUP:
+
+	LDI R16, (1 << CLKPCE) // CLKPCE = 7, corremos 7 veces el 1 en el registro R16
+	STS CLKPR, R16
+
+	LDI R16, 0b0000_0011
+	STS CLKPR, R16		   // Definiendo un prescaler de 8 fcpu = 2MHz
+
+// Entradas
+	LDI R16, 0b0011_1110
+	OUT PORTC, R16
+	LDI R16, 0b0011_1110
+	OUT DDRC, R16
+// Salidas 
+	LDI R16, 0b0001_1111		// Configura el puerto B (LEDs) como salida
+	OUT DDRB, R16 
+	LDI R16, 0b1111_1100
+	OUT DDRD, R16
+
+//-----------------------------------------------------------------------------
+// LOOP infinito
+//-----------------------------------------------------------------------------
+LOOP:
+
+	MOV R19, R17
+	IN R16, PINC
+	SBRS R16, PC1 // compara si el bit con el puerto PC1 esta en 1, salta
+	RJMP DelayAU1 
+	SBRS R16, PC3 // compara si el bit con el puerto PC3 esta en 1, salta
+	RJMP DelayAU2
+	SBRS R16, PC2 // compara si el bit con el puerto PC2 esta en 1, salta
+	RJMP DelayDE1
+	SBRS R16, PC4 // compara si el bit con el puerto PC4 esta en 1, salta
+	RJMP DelayDE2 
+	IN R16, PINC
+	SBRS R16, PC5
+	RJMP Delaysuma
+	RJMP LOOP
+
+//Delays	
+DelayAU1:
+
+	LDI R16, 100
+	LOOP_AU1:
+
+		DEC R16
+		BRNE LOOP_AU1
+		// Lee nuevamente el pin
+		SBIS PINC, PC1			// Salta si el bit PC1 esta en 1
+		RJMP DelayAU1
+		// Enciende el LED
+		CPI R17, 15
+		BREQ LOOP
+		INC R17
+		OUT PORTB, R17 // Extrae el valor de R17 y lo manda al puerto B
+		RJMP LOOP
+DelayAU2:
+
+	LDI R16, 100
+	LOOP_AU2:
+
+		DEC R16
+		BRNE LOOP_AU2
+		// Lee nuevamente el pin
+		SBIS PINC, PC3			// Salta si el bit PC1 esta en 1
+		RJMP DelayAU2
+		// Enciende el LED
+		CPI R18, 15
+		BREQ LOOP
+		INC R18
+		CALL lec18
+		OUT PORTD, R16 // Manda del registro 16 al puertoD
+		RJMP LOOP
+
+// Delay decremento
+DelayDE1:
+
+	LDI R16, 100
+	LOOP_De1:
+
+		DEC R16
+		BRNE LOOP_De1
+		// Lee nuevamente el pin
+		SBIS PINC, PC2			// Salta si el bit PC2 esta en 1
+		RJMP DelayDE1
+		// Enciende el LED
+		CPI R17, 0
+		BREQ LOOP
+		DEC R17
+		OUT PORTB, R17 // Extrae el valor de R17 y lo manda al puerto B
+		RJMP LOOP
+DelayDE2:
+	LDI R16, 100
+	LOOP_De2:
+		DEC R16
+		BRNE LOOP_De2
+		// Lee nuevamente el pin
+		SBIS PINC, PC4			// Salta si el bit PC2 esta en 1
+		RJMP DelayDE2
+		// Enciende el LED
+		CPI R18, 0
+		BREQ LOOP
+		DEC R18
+		CALL lec18
+		OUT PORTD, R16 // Manda del registro 16 al puertoD
+		RJMP LOOP
+
+Delaysuma:
+	LDI R16, 100
+	LOOP_suma:
+		DEC R16
+		BRNE LOOP_suma
+		// Lee nuevamente el pin
+		SBIS PINC, PC4			// Salta si el bit PC2 esta en 1
+		RJMP Delaysuma
+		LDI R16, 0b0011_1110
+		OUT PORTC, R16
+		ADD R17, R18
+		LDI R16, 16
+		CP R17, R16
+		BRGE Carry
+		OUT PORTB, R17
+		MOV R17, R19
+		RJMP LOOP
+
+Carry:
+	LDI R16, 0b0000_0000
+	OUT PORTD, R16
+	OUT PORTB, R16
+	LDI R16, 0b0011_1111
+	OUT PORTC, R16
+	RJMP LOOP
+
+cero:
+	LDI R16, (0 << PD7) | (0 << PD6) | (0 << PD5) | (0 << PD4)
+	RET
+uno:
+	LDI R16, (0 << PD7) | (0 << PD6) | (0 << PD5) | (1 << PD4)
+	RET
+dos:
+	LDI R16, (0 << PD7) | (0 << PD6) | (1 << PD5) | (0 << PD4)
+	RET
+tres:
+	LDI R16, (0 << PD7) | (0 << PD6) | (1 << PD5) | (1 << PD4)
+	RET
+cuatro:
+	LDI R16, (0 << PD7) | (1 << PD6) | (0 << PD5) | (0 << PD4)
+	RET
+cinco:
+	LDI R16, (0 << PD7) | (1 << PD6) | (0 << PD5) | (1 << PD4)
+	RET
+seis:
+	LDI R16, (0 << PD7) | (1 << PD6) | (1 << PD5) | (0 << PD4)
+	RET
+siete:
+	LDI R16, (0 << PD7) | (1 << PD6) | (1 << PD5) | (1 << PD4)
+	RET
+ocho:
+	LDI R16, (1 << PD7) | (0 << PD6) | (0 << PD5) | (0 << PD4)
+	RET
+nueve:
+	LDI R16, (1 << PD7) | (0 << PD6) | (0 << PD5) | (1 << PD4)
+	RET
+diez:
+	LDI R16, (1 << PD7) | (0 << PD6) | (1 << PD5) | (0 << PD4)
+	RET
+once:
+	LDI R16, (1 << PD7) | (0 << PD6) | (1 << PD5) | (1 << PD4)
+	RET
+doce:
+	LDI R16, (1 << PD7) | (1 << PD6) | (0 << PD5) | (0 << PD4)
+	RET
+trece:
+	LDI R16, (1 << PD7) | (1 << PD6) | (0 << PD5) | (1 << PD4)
+	RET
+catorce:
+	LDI R16, (1 << PD7) | (1 << PD6) | (1 << PD5) | (0 << PD4)
+	RET
+quince:
+	LDI R16, (1 << PD7) | (1 << PD6) | (1 << PD5) | (1 << PD4)
+	RET
+
+lec18:
+	CPI R18, 0
+	BREQ cero
+	CPI R18, 1
+	BREQ uno
+	CPI R18, 2
+	BREQ dos
+	CPI R18, 3
+	BREQ tres
+	CPI R18, 4
+	BREQ cuatro
+	CPI R18, 5
+	BREQ cinco
+	CPI R18, 6
+	BREQ seis
+	CPI R18, 7
+	BREQ siete
+	CPI R18, 8
+	BREQ ocho
+	CPI R18, 9
+	BREQ nueve
+	CPI R18, 10
+	BREQ diez
+	CPI R18, 11
+	BREQ once
+	CPI R18, 12
+	BREQ doce
+	CPI R18, 13
+	BREQ trece
+	CPI R18, 14
+	BREQ catorce
+	CPI R18, 15 
+	BREQ quince
+	RET
